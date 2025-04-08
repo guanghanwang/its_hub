@@ -2,7 +2,7 @@
 
 Example of using `[1]` for inference-time scaling
 
-```
+```python
 from inference_time_scaling import ParticleFiltering
 
 llm = ...
@@ -18,6 +18,6 @@ scaling_method.inference(llm, prm, prompt, budget) # => gives output
 
 ## Installation
 
-```
+```sh
 pip install git+https://github.com/Red-Hat-AI-Innovation-Team/inference_time_scaling.git
 ```
