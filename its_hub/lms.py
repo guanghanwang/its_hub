@@ -189,7 +189,6 @@ class OpenAICompatibleLanguageModel(AbstractLanguageModel):
                         if response.status != 200:
                             error_text = await response.text()
                             raise Exception(f"API request failed with status {response.status}: {error_text}")
-                        
                         response_json = await response.json()
                         return response_json["choices"][0]["message"]["content"]
 
@@ -202,7 +201,8 @@ class OpenAICompatibleLanguageModel(AbstractLanguageModel):
         is_single = isinstance(messages_or_messages_lst[0], dict)
         messages_lst = [messages_or_messages_lst] if is_single else messages_or_messages_lst
         if self.is_async:
-            response_or_responses = asyncio.run(self._generate(messages_lst, stop, max_tokens, temperature, include_stop_str_in_output))
+            loop = asyncio.get_event_loop()
+            response_or_responses = loop.run_until_complete(self._generate(messages_lst, stop, max_tokens, temperature, include_stop_str_in_output))
         else:
             @backoff.on_exception(backoff.expo, Exception, max_tries=self.max_tries, on_backoff=_on_backoff)
             def fetch_single_response(messages):
