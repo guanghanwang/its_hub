@@ -321,16 +321,16 @@ class MockLanguageModel:
         self.call_count = 0
 
     def generate(self, messages, stop=None, temperature=None, include_stop_str_in_output=None):
-        # handle both single message and list of messages
-        if isinstance(messages[0], dict):
-            response = self.responses[self.call_count]
-            self.call_count += 1
-            return response
-        else:
-            # for multiple messages, return a list of responses
+        if isinstance(messages[0], list):
+            # Multiple message lists
             responses = self.responses[self.call_count:self.call_count + len(messages)]
             self.call_count += len(messages)
             return responses
+        else:
+            # Single message list
+            response = self.responses[self.call_count]
+            self.call_count += 1
+            return response
 
 
 class TestStepGeneration(unittest.TestCase):
