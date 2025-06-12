@@ -9,7 +9,7 @@ from .base import AbstractLanguageModel
 from .types import ChatMessage
 from .error_handling import (
     parse_api_error, enhanced_on_backoff, should_retry, 
-    format_non_retryable_error, RETRYABLE_ERRORS
+    format_non_retryable_error, RETRYABLE_ERRORS, APIError
 )
 
 def rstrip_iff_entire(s, subs):
@@ -132,6 +132,7 @@ class OpenAICompatibleLanguageModel(AbstractLanguageModel):
         temperature: float = None,
         max_tries: int = 8,
         max_concurrency: int = -1,
+        replace_error_with_message: Optional[str] = None,
     ):
         assert max_concurrency == -1 or max_concurrency > 0, \
             "max_concurrency must be -1 (unlimited concurrency) or a positive integer"
@@ -143,6 +144,7 @@ class OpenAICompatibleLanguageModel(AbstractLanguageModel):
         self.is_async = is_async
         self.max_tries = max_tries
         self.max_concurrency = max_concurrency
+        self.replace_error_with_message = replace_error_with_message
 
         # runtime parameters
         self.stop = stop
@@ -229,10 +231,23 @@ class OpenAICompatibleLanguageModel(AbstractLanguageModel):
                             raise api_error
                         response_json = await response.json()
                         return response_json["choices"][0]["message"]["content"]
+            
+            async def safe_fetch_response(messages, _temperature):
+                if self.replace_error_with_message is not None:
+                    try:
+                        return await fetch_response(messages, _temperature)
+                    except (aiohttp.ClientError, TimeoutError) as e:
+                        logging.error(f"Network error during async generation: {e}")
+                        return self.replace_error_with_message
+                    except APIError as e:
+                        logging.error(f"API error during async generation: {e}")
+                        return self.replace_error_with_message
+                else:
+                    return await fetch_response(messages, _temperature)
 
             # gather all responses asynchronously, with concurrency limited to max_concurrency
             temperature_lst = temperature if isinstance(temperature, list) else [temperature] * len(messages_lst)
-            return await asyncio.gather(*(fetch_response(messages, _temperature) 
+            return await asyncio.gather(*(safe_fetch_response(messages, _temperature) 
                                           for messages, _temperature in zip(messages_lst, temperature_lst)))
     
     def generate(
@@ -268,8 +283,21 @@ class OpenAICompatibleLanguageModel(AbstractLanguageModel):
                 response_json = response.json()
                 return response_json["choices"][0]["message"]["content"]
             
+            def safe_fetch_single_response(messages, _temperature):
+                if self.replace_error_with_message is not None:
+                    try:
+                        return fetch_single_response(messages, _temperature)
+                    except requests.RequestException as e:
+                        logging.error(f"Network error during sync generation: {e}")
+                        return self.replace_error_with_message
+                    except APIError as e:
+                        logging.error(f"API error during sync generation: {e}")
+                        return self.replace_error_with_message
+                else:
+                    return fetch_single_response(messages, _temperature)
+            
             temperature_lst = temperature if isinstance(temperature, list) else [temperature] * len(messages_lst)
-            responses = [fetch_single_response(messages, _temperature) for messages, _temperature in zip(messages_lst, temperature_lst)]
+            responses = [safe_fetch_single_response(messages, _temperature) for messages, _temperature in zip(messages_lst, temperature_lst)]
             response_or_responses = responses
         return response_or_responses[0] if is_single else response_or_responses
     
