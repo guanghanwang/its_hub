@@ -2,7 +2,6 @@ from typing import Callable, Union, List
 from collections import Counter
 from pydantic.dataclasses import dataclass
 import random
-from tqdm import tqdm
 
 from ..base import AbstractLanguageModel, AbstractScalingResult, AbstractScalingAlgorithm
 from ..types import ChatMessage

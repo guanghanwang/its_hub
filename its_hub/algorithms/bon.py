@@ -1,6 +1,5 @@
 from typing import Union, List
 from pydantic.dataclasses import dataclass
-from tqdm import tqdm
 
 from ..base import AbstractLanguageModel, AbstractScalingResult, AbstractScalingAlgorithm, AbstractOutcomeRewardModel
 from ..types import ChatMessage

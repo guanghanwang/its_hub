@@ -2,7 +2,6 @@ from typing import Union, List
 import copy
 from pydantic.dataclasses import dataclass
 import numpy as np
-from tqdm import tqdm
 
 from ..base import AbstractLanguageModel, AbstractScalingResult, AbstractScalingAlgorithm, AbstractProcessRewardModel
 from ..lms import StepGeneration

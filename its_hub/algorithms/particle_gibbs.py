@@ -4,7 +4,6 @@ import copy
 from pydantic.dataclasses import dataclass
 import random
 import numpy as np
-from tqdm import tqdm
 
 from ..base import AbstractLanguageModel, AbstractScalingResult, AbstractScalingAlgorithm, AbstractProcessRewardModel
 from ..lms import StepGeneration
