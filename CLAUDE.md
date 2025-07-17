@@ -112,3 +112,7 @@ The library is optimized for mathematical reasoning:
 - Regex patterns for mathematical notation (e.g., `r"\boxed"` for final answers)
 - Integration with math_verify for evaluation
 - Benchmarking on MATH500 and AIME-2024 datasets
+
+## Inference-as-a-Service (IaaS)
+
+The its_hub library includes an IaaS service that provides OpenAI-compatible API with inference-time scaling capabilities. For comprehensive setup instructions, usage examples, and troubleshooting, see [docs/iaas-service.md](./docs/iaas-service.md).
