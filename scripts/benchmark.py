@@ -21,7 +21,7 @@ class BenchmarkDataset(Enum):
 
 def load_benchmark_dataset(dataset: BenchmarkDataset):
     if dataset == BenchmarkDataset.MATH500:
-        ds = datasets.load_dataset("HuggingFaceH4/MATH-500")["test"]
+        ds = datasets.load_dataset("ankner/math-500")["test"]
     elif dataset == BenchmarkDataset.AIME_2024:
         ds = datasets.load_dataset("Maxwell-Jia/AIME_2024")["train"]
         old_column_names = ds.column_names
