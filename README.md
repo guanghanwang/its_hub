@@ -98,17 +98,20 @@ python -m vllm.entrypoints.openai.api_server \
 
 * Benchmark the MATH500
 ```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3 \
-python scripts/benchmark.py \
-    --benchmark math500 \
-    --model_name Qwen/Qwen2.5-Math-1.5B-Instruct \
-    --alg particle-filtering \
-    --rm_device cuda:0 \
-    --endpoint http://0.0.0.0:8100/v1 \
-    --shuffle_seed 1110 \
-    --does_eval \
-    --budgets 2 \
-    --rm_agg_method model
+for n in 2 4 8 16 32 64
+do
+    CUDA_VISIBLE_DEVICES=0,1,2,3 \
+    python scripts/benchmark.py \
+        --benchmark math500 \
+        --model_name Qwen/Qwen2.5-Math-1.5B-Instruct \
+        --alg particle-filtering \
+        --rm_device cuda:0 \
+        --endpoint http://0.0.0.0:8100/v1 \
+        --shuffle_seed 1110 \
+        --does_eval \
+        --budgets $n \
+        --rm_agg_method model
+done
 ```
 
 * Monitor GPU Memory
