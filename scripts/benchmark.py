@@ -201,7 +201,7 @@ def main(
     rows = []
     try:
         for n in tqdm(budgets):
-            for x in dataset:
+            for x in tqdm(dataset):
                 y_full = None
                 y = None
                 if not force_run and len(df_existing) > 0:
@@ -249,13 +249,13 @@ def main(
                     }
                 if does_eval:
                     if eval_expected_pass_at_one:
-                        c = [math_verify.verify(math_verify.parse(x["answer"]), math_verify.parse(y)) 
+                        c = [math_verify.verify(math_verify.parse(x["solution"]), math_verify.parse(y)) 
                              for y in row["responses"]]
                         p = _softmax(row["log_probs"])
                         row["correct"] = np.dot(p, c)
                     else:
                         row["correct"] = math_verify.verify(
-                            math_verify.parse(x["answer"]), math_verify.parse(row["response"])
+                            math_verify.parse(x["solution"]), math_verify.parse(row["response"])
                         )
                 rows.append(row)
     except KeyboardInterrupt:

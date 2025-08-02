@@ -98,7 +98,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 * Benchmark the MATH500
 ```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
 python scripts/benchmark.py \
     --benchmark math500 \
     --model_name Qwen/Qwen2.5-Math-1.5B-Instruct \
@@ -107,7 +107,7 @@ python scripts/benchmark.py \
     --endpoint http://0.0.0.0:8100/v1 \
     --shuffle_seed 1110 \
     --does_eval \
-    --budgets 1,2,4,8,16,32,64 \
+    --budgets 2 \
     --rm_agg_method model
 ```
 
