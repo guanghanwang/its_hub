@@ -1,3 +1,4 @@
 budget=  1: accuracy=0.7540 (377/500)
-
+budget=  2: accuracy=0.7900 (395/500)
 budget=  4: accuracy=0.7980 (399/498)
+budget=  8: accuracy=0.8400 (420/500)
