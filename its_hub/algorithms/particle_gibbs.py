@@ -249,6 +249,7 @@ class ParticleGibbs(AbstractScalingAlgorithm):
             responses_lst.append(
                 [self.sg._post_process(p.steps, stopped=True) for p in particles]
             )
+
             log_weights_lst.append(log_weights)
             ref_indices_lst.append(ref_indices)
             steps_used_lst.append([len(p.steps) for p in particles])

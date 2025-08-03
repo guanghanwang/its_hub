@@ -16,12 +16,15 @@ from its_hub.utils import SAL_STEP_BY_STEP_SYSTEM_PROMPT, QWEN_SYSTEM_PROMPT
 from its_hub.integration.reward_hub import AggregationMethod, LocalVllmProcessRewardModel
 
 class BenchmarkDataset(Enum):
+    GSM8K = "gsm8k"
     MATH500 = "math500"
     AIME_2024 = "aime-2024"
 
 def load_benchmark_dataset(dataset: BenchmarkDataset):
     if dataset == BenchmarkDataset.MATH500:
         ds = datasets.load_dataset("ankner/math-500")["test"]
+    elif dataset == BenchmarkDataset.GSM8K:
+        ds = datasets.load_dataset("openai/gsm8k", "main")["test"]
     elif dataset == BenchmarkDataset.AIME_2024:
         ds = datasets.load_dataset("Maxwell-Jia/AIME_2024")["train"]
         old_column_names = ds.column_names
@@ -103,6 +106,7 @@ def display_results(df: pd.DataFrame):
 @click.option("--does_eval", is_flag=True, default=False, help="whether to evaluate the results")
 @click.option("--eval_expected_pass_at_one", is_flag=True, default=False, help="whether to evaluate expected pass at one")
 @click.option("--display_only", is_flag=True, default=False, help="whether to show only the results")
+@click.option("--fk", is_flag=True, default=False, help="whether to use fk steering")
 def main(
     benchmark: BenchmarkDataset, 
     model_name: str, 
@@ -220,13 +224,13 @@ def main(
                 if (y_full is None if eval_expected_pass_at_one else y is None):
                     try:
                         if eval_expected_pass_at_one:
-                            y_full = scaling_alg.infer(lm, x["problem"], n, return_response_only=False)
+                            y_full = scaling_alg.infer(lm, x["question"], n, return_response_only=False)
                             y_full = {
                                 "responses": y_full.responses_lst[-1],
                                 "log_probs": y_full.log_weights_lst[-1],
                             }
                         else:
-                            y = scaling_alg.infer(lm, x["problem"], n)
+                            y = scaling_alg.infer(lm, x["question"], n)
                     except KeyboardInterrupt:
                         raise
                     except Exception as e:
@@ -249,13 +253,13 @@ def main(
                     }
                 if does_eval:
                     if eval_expected_pass_at_one:
-                        c = [math_verify.verify(math_verify.parse(x["solution"]), math_verify.parse(y)) 
+                        c = [math_verify.verify(math_verify.parse(x["answer"]), math_verify.parse(y)) 
                              for y in row["responses"]]
                         p = _softmax(row["log_probs"])
                         row["correct"] = np.dot(p, c)
                     else:
                         row["correct"] = math_verify.verify(
-                            math_verify.parse(x["solution"]), math_verify.parse(row["response"])
+                            math_verify.parse(x["answer"]), math_verify.parse(row["response"])
                         )
                 rows.append(row)
     except KeyboardInterrupt:
