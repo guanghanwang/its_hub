@@ -98,7 +98,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 * Benchmark the MATH500
 ```bash
-for n in 2 4 8 16 32 64
+for n in 2 16 32 64
 do
     CUDA_VISIBLE_DEVICES=0,1,2,3 \
     python scripts/benchmark.py \
@@ -110,7 +110,7 @@ do
         --shuffle_seed 1110 \
         --does_eval \
         --budgets $n \
-        --rm_agg_method model
+        --rm_agg_method model > ./pf_{$n}.log 2>&1
 done
 ```
 

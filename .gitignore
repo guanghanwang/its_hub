@@ -185,3 +185,5 @@ cython_debug/
 
 # local dev
 notebooks/dev.ipynb
+
+checkpoints
