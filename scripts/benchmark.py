@@ -18,10 +18,13 @@ from its_hub.integration.reward_hub import AggregationMethod, LocalVllmProcessRe
 class BenchmarkDataset(Enum):
     MATH500 = "math500"
     AIME_2024 = "aime-2024"
+    GSM8K = "gsm8k"
 
 def load_benchmark_dataset(dataset: BenchmarkDataset):
     if dataset == BenchmarkDataset.MATH500:
         ds = datasets.load_dataset("HuggingFaceH4/MATH-500")["test"]
+    elif dataset == BenchmarkDataset.GSM8K:
+        ds = datasets.load_dataset("openai/gsm8k", "main")["test"]
     elif dataset == BenchmarkDataset.AIME_2024:
         ds = datasets.load_dataset("Maxwell-Jia/AIME_2024")["train"]
         old_column_names = ds.column_names
@@ -73,6 +76,9 @@ def display_results(df: pd.DataFrame):
     accuracy_by_budget = df.groupby("budget")["correct"].agg(["mean", "count"])
     for n, (accuracy, count) in accuracy_by_budget.iterrows():
         print(f"budget={n:3d}: accuracy={accuracy:.4f} ({int(accuracy * count):2d}/{int(count):2d})")
+    accuracy_argmax_by_budget = df.groupby("budget")["correct_argmax"].agg(["mean", "count"])
+    for n, (accuracy, count) in accuracy_argmax_by_budget.iterrows():
+        print(f"budget={n:3d}: accuracy_argmax={accuracy:.4f} ({int(accuracy * count):2d}/{int(count):2d})")
 
 @click.command()
 @click.option("--benchmark", type=click.Choice([e.value for e in BenchmarkDataset]), required=True, 
@@ -141,7 +147,7 @@ def main(
         alg_str = f"{alg.value}-{rm_name_dashed}-{rm_agg_method.value}"
     else:
         alg_str = alg.value
-    output_file = os.path.join(output_dir, f"{model_name_dashed}-{alg_str}-{benchmark.value}.jsonl")
+    output_file = os.path.join(output_dir, f"{model_name_dashed}-{alg_str}-{benchmark.value}-N-{str(budgets[0])}.jsonl")
     if os.path.exists(output_file):
         df_existing = pd.read_json(output_file, orient='records', lines=True)
         print(f"loaded {len(df_existing)} existing results from {output_file}")
@@ -201,7 +207,7 @@ def main(
     rows = []
     try:
         for n in tqdm(budgets):
-            for x in dataset:
+            for x in tqdm(dataset):
                 y_full = None
                 y = None
                 if not force_run and len(df_existing) > 0:
@@ -210,53 +216,37 @@ def main(
                             (df_existing["budget"] == n)
                     if match.any():
                         assert match.sum() == 1, f"expected exactly one match, got {match.sum()}"
-                        if eval_expected_pass_at_one:
-                            y_full = {
-                                "responses": df_existing.loc[match, "responses"].values[0],
-                                "log_probs": df_existing.loc[match, "log_probs"].values[0],
-                            }
-                        else:
-                            y = df_existing.loc[match, "response"].values[0]
-                if (y_full is None if eval_expected_pass_at_one else y is None):
+                        y_full = {
+                            "responses": df_existing.loc[match, "responses"].values[0],
+                            "log_probs": df_existing.loc[match, "log_probs"].values[0],
+                        }
+                if (y_full is None):
                     try:
-                        if eval_expected_pass_at_one:
-                            y_full = scaling_alg.infer(lm, x["problem"], n, return_response_only=False)
-                            y_full = {
-                                "responses": y_full.responses_lst[-1],
-                                "log_probs": y_full.log_weights_lst[-1],
-                            }
-                        else:
-                            y = scaling_alg.infer(lm, x["problem"], n)
+                        y, y_full = scaling_alg.infer(lm, x["question"], n)
+                        y_full = {
+                            "responses": y_full.responses_lst[-1],
+                            "log_probs": y_full.log_weights_lst[-1],
+                        }
                     except KeyboardInterrupt:
                         raise
                     except Exception as e:
                         print(f"error scaling example {x['unique_id']}: {e}")
                         continue
-                if eval_expected_pass_at_one:
-                    row = {
-                        "unique_id": x["unique_id"],
-                        "budget": n,
-                        "responses": y_full["responses"],
-                        "log_probs": y_full["log_probs"],
-                        "correct": None,
-                    }
-                else:
-                    row = {
-                        "unique_id": x["unique_id"],
-                        "budget": n,
-                        "response": y,
-                        "correct": None,
-                    }
+                row = {
+                    "unique_id": x["unique_id"],
+                    "budget": n,
+                    "responses": y_full["responses"],
+                    "log_probs": y_full["log_probs"],
+                    "correct": None,
+                    "response": y,
+                    "correct_argmax": None,
+                }
                 if does_eval:
-                    if eval_expected_pass_at_one:
-                        c = [math_verify.verify(math_verify.parse(x["answer"]), math_verify.parse(y)) 
-                             for y in row["responses"]]
-                        p = _softmax(row["log_probs"])
-                        row["correct"] = np.dot(p, c)
-                    else:
-                        row["correct"] = math_verify.verify(
-                            math_verify.parse(x["answer"]), math_verify.parse(row["response"])
-                        )
+                    correct_score = [math_verify.verify(math_verify.parse(x["answer"]), math_verify.parse(y)) 
+                            for y in row["responses"]]
+                    p = _softmax(row["log_probs"])
+                    row["correct"] = np.dot(p, correct_score)
+                    row["correct_argmax"] = math_verify.verify(math_verify.parse(x["answer"]), math_verify.parse(row["response"]))
                 rows.append(row)
     except KeyboardInterrupt:
         print("\nkeyboard interrupt detected, saving partial results")

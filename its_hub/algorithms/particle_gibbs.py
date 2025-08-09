@@ -1,6 +1,7 @@
 import copy
 import random
 from enum import Enum
+import math
 
 import numpy as np
 from pydantic.dataclasses import dataclass
@@ -32,6 +33,7 @@ class Particle:
     steps: list[str]
     is_stopped: bool
     partial_log_weights: list[float]  # Store aggregated log weights until each step
+    partial_potentials: list[float]    # Store intermediate potentials
 
     @property
     def log_weight(self) -> float:
@@ -40,13 +42,26 @@ class Particle:
             return self.partial_log_weights[-1]
         return 0.0
 
+    @property
+    def accumulated_potential(self) -> float:
+        if self.partial_potentials:
+            return sum(self.partial_potentials)
+        return 0.0
+
     def deepcopy(self):
         # create a deep copy of the particle object
         return Particle(
             steps=copy.deepcopy(self.steps),
             is_stopped=self.is_stopped,
             partial_log_weights=copy.deepcopy(self.partial_log_weights),
+            partial_potentials=copy.deepcopy(self.partial_potentials),
         )
+    
+    def set_log_weight(self, log_weight):
+        self.partial_log_weights.append(log_weight)
+    
+    def set_potential(self, potential):
+        self.partial_potentials.append(potential)
 
 
 def _inv_sigmoid(x):
@@ -56,9 +71,9 @@ def _inv_sigmoid(x):
     return np.log(x / (1 - x))
 
 
-def _softmax(x):
+def _softmax(x, lambda_fk=1.0):
     # shift x by the maximum value for numerical stability
-    x_shifted = x - np.max(x)
+    x_shifted = lambda_fk * (x - np.max(x))
     return np.exp(x_shifted) / np.sum(np.exp(x_shifted))
 
 
@@ -115,7 +130,7 @@ class ParticleGibbs(AbstractScalingAlgorithm):
                     prompt, self.sg._post_process(p.steps, stopped=True)
                 )
                 p.partial_log_weights.append(_inv_sigmoid(score))
-
+                
             return particles
 
         is_stopped_in_the_beginning = [p.is_stopped for p in particles]
@@ -176,7 +191,7 @@ class ParticleGibbs(AbstractScalingAlgorithm):
         lm: AbstractLanguageModel,
         prompt: str,
         budget: int,
-        return_response_only: bool = True,
+        lambda_fk: float = 1.0,
     ) -> str | ParticleGibbsResult:
         assert budget % self.num_iterations == 0, (
             "budget must be divisible by num_iterations"
@@ -194,7 +209,7 @@ class ParticleGibbs(AbstractScalingAlgorithm):
             num_free_particles = num_particles - len(ref_particles)
 
             particles = [
-                Particle(steps=[], is_stopped=False, partial_log_weights=[])
+                Particle(steps=[], is_stopped=False, partial_log_weights=[], partial_potentials=[])
                 for _ in range(num_free_particles)
             ] + ref_particles
 
@@ -215,7 +230,9 @@ class ParticleGibbs(AbstractScalingAlgorithm):
                         # Non-stopped particles use weight at current step
                         log_weights.append(p.partial_log_weights[current_step - 1])
 
-                probabilities = _softmax(log_weights)
+                probabilities = _softmax(log_weights, lambda_fk)
+                for index in range(len(particles)):
+                    particles[index].set_potential(np.log(probabilities[index]).item())
                 resampled_particles = random.choices(
                     particles, weights=probabilities, k=num_free_particles
                 )
@@ -249,6 +266,31 @@ class ParticleGibbs(AbstractScalingAlgorithm):
             responses_lst.append(
                 [self.sg._post_process(p.steps, stopped=True) for p in particles]
             )
+
+            # Final step to adjust the distribution
+            log_weights_final = []
+            for i in range(len(particles)):
+                response = responses_lst[0][i]
+                final_reward = 1 / (1 + math.e ** (-log_weights[i]))
+                final_log_weight = lambda_fk * final_reward - sum(particles[i].partial_potentials)
+                particles[i].set_log_weight(final_log_weight)
+                log_weights_final.append(final_log_weight)
+            probabilities = _softmax(log_weights_final)
+            resampled_particles = random.choices(
+                particles, weights=probabilities, k=num_free_particles
+            )
+            particles = [p.deepcopy() for p in resampled_particles]
+
+            log_weights = [p.log_weight for p in particles]
+            probabilities = _softmax(log_weights)
+            ref_indices = random.choices(
+                range(len(particles)), weights=probabilities, k=self.num_ref_particles
+            )
+            ref_particles = [particles[i] for i in ref_indices]
+            responses_lst.append(
+                [self.sg._post_process(p.steps, stopped=True) for p in particles]
+            )
+
             log_weights_lst.append(log_weights)
             ref_indices_lst.append(ref_indices)
             steps_used_lst.append([len(p.steps) for p in particles])
@@ -271,7 +313,7 @@ class ParticleGibbs(AbstractScalingAlgorithm):
             steps_used_lst=steps_used_lst,
         )
 
-        return result.the_one if return_response_only else result
+        return result.the_one, result
 
 
 class ParticleFiltering(ParticleGibbs):

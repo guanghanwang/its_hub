@@ -71,3 +71,43 @@ pytest tests
 ```
 
 For detailed documentation, visit: [https://ai-innovation.team/its_hub](https://ai-innovation.team/its_hub)
+
+# Benchmark
+
+* Create a virtual environment
+```bash
+conda create -n its-hub python=3.11
+conda activate its-hub
+pip install -e ".[dev]"
+```
+
+* Launch vLLM server
+```bash
+CUDA_VISIBLE_DEVICES=0 \
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+python -m vllm.entrypoints.openai.api_server \
+    --model Qwen/Qwen2.5-1.5B-Instruct \
+    --dtype float16 \
+    --port 8000 \
+    --max-model-len 2048 \
+    --gpu-memory-utilization 0.6 \
+    --max-num-seqs 128 \
+    --tensor-parallel-size 1
+```
+
+* Benchmark models
+```bash
+for n in 4
+do
+    python scripts/benchmark.py \
+        --benchmark gsm8k \
+        --model_name Qwen/Qwen2.5-1.5B-Instruct \
+        --alg particle-filtering \
+        --rm_device cuda:1 \
+        --endpoint http://0.0.0.0:8000/v1 \
+        --shuffle_seed 1110 \
+        --does_eval \
+        --budgets $n \
+        --rm_agg_method model
+done
+```
