@@ -95,19 +95,50 @@ python -m vllm.entrypoints.openai.api_server \
     --tensor-parallel-size 1
 ```
 
+```bash
+CUDA_VISIBLE_DEVICES=1 \
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+python -m vllm.entrypoints.openai.api_server \
+    --model /home/ubuntu/its_hub/checkpoints/gsm8k_qwen_grpo_empo \
+    --dtype float16 \
+    --port 8001 \
+    --max-model-len 2048 \
+    --gpu-memory-utilization 0.6 \
+    --max-num-seqs 128 \
+    --tensor-parallel-size 1
+```
+
 * Benchmark models
 ```bash
-for n in 4
+for n in 1 2 4 8 16 32 64
 do
+    CUDA_VISIBLE_DEVICES=0 \
     python scripts/benchmark.py \
         --benchmark gsm8k \
         --model_name Qwen/Qwen2.5-1.5B-Instruct \
         --alg particle-filtering \
-        --rm_device cuda:1 \
+        --rm_device cuda:0 \
         --endpoint http://0.0.0.0:8000/v1 \
         --shuffle_seed 1110 \
         --does_eval \
         --budgets $n \
-        --rm_agg_method model
+        --rm_agg_method model > logs/gsm8k_qwen_lambda-1_N-${n}.log
+done
+```
+
+```bash
+for n in 1 2 4 8 16 32 64
+do
+    CUDA_VISIBLE_DEVICES=1 \
+    python scripts/benchmark.py \
+        --benchmark gsm8k \
+        --model_name /home/ubuntu/its_hub/checkpoints/gsm8k_qwen_grpo_empo \
+        --alg particle-filtering \
+        --rm_device cuda:0 \
+        --endpoint http://0.0.0.0:8001/v1 \
+        --shuffle_seed 1110 \
+        --does_eval \
+        --budgets $n \
+        --rm_agg_method model > logs/gsm8k_qwen_grpo_empo_lambda-1_N-${n}.log
 done
 ```
