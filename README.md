@@ -89,8 +89,8 @@ python -m vllm.entrypoints.openai.api_server \
     --model Qwen/Qwen2.5-1.5B-Instruct \
     --dtype float16 \
     --port 8000 \
-    --max-model-len 2048 \
-    --gpu-memory-utilization 0.6 \
+    --max-model-len 4096 \
+    --gpu-memory-utilization 0.5 \
     --max-num-seqs 128 \
     --tensor-parallel-size 1
 ```
@@ -102,8 +102,8 @@ python -m vllm.entrypoints.openai.api_server \
     --model /home/ubuntu/its_hub/checkpoints/gsm8k_qwen_grpo_empo \
     --dtype float16 \
     --port 8001 \
-    --max-model-len 2048 \
-    --gpu-memory-utilization 0.6 \
+    --max-model-len 4096 \
+    --gpu-memory-utilization 0.5 \
     --max-num-seqs 128 \
     --tensor-parallel-size 1
 ```
