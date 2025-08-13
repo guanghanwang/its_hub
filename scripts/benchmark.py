@@ -147,7 +147,7 @@ def main(
         alg_str = f"{alg.value}-{rm_name_dashed}-{rm_agg_method.value}"
     else:
         alg_str = alg.value
-    output_file = os.path.join(output_dir, f"{model_name_dashed}-{alg_str}-{benchmark.value}-N-{str(budgets[0])}.jsonl")
+    output_file = os.path.join(output_dir, f"{model_name_dashed}-{alg_str}-T-{str(temperature)}-{benchmark.value}-N-{str(budgets[0])}.jsonl")
     if os.path.exists(output_file):
         df_existing = pd.read_json(output_file, orient='records', lines=True)
         print(f"loaded {len(df_existing)} existing results from {output_file}")
