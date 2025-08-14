@@ -186,3 +186,9 @@ cython_debug/
 # local dev
 notebooks/dev.ipynb
 checkpoints
+watch_folder
+sbatch_scripts
+.claude
+.devcontainer
+.github
+hf_cache

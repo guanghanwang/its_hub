@@ -83,12 +83,12 @@ pip install -e ".[dev]"
 
 * Launch vLLM server
 ```bash
-CUDA_VISIBLE_DEVICES=1 \
+CUDA_VISIBLE_DEVICES=0 \
 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
 python -m vllm.entrypoints.openai.api_server \
     --model Qwen/Qwen2.5-1.5B-Instruct \
     --dtype float16 \
-    --port 8001 \
+    --port 8000 \
     --max-model-len 4096 \
     --gpu-memory-utilization 0.5 \
     --max-num-seqs 128 \
@@ -110,36 +110,34 @@ python -m vllm.entrypoints.openai.api_server \
 
 * Benchmark models
 ```bash
-for n in 1 2 4 8
+for n in 32
 do
-    CUDA_VISIBLE_DEVICES=1 \
+    CUDA_VISIBLE_DEVICES=0 \
     python scripts/benchmark.py \
         --benchmark gsm8k \
         --model_name Qwen/Qwen2.5-1.5B-Instruct \
         --alg particle-filtering \
         --rm_device cuda:0 \
-        --endpoint http://0.0.0.0:8001/v1 \
+        --endpoint http://0.0.0.0:8000/v1 \
         --shuffle_seed 1110 \
         --does_eval \
         --budgets $n \
-        --temperature 1.2 \
-        --rm_agg_method model > logs/gsm8k_qwen_T-1.2_N-${n}.log
+        --rm_agg_method model > logs/gsm8k_qwen_T-0.8_N-${n}.log
 done
 ```
 
 ```bash
-for n in 1 2 4 8 16 32 64
+for n in 1 2 4 8 16
 do
-    CUDA_VISIBLE_DEVICES=1 \
     python scripts/benchmark.py \
         --benchmark gsm8k \
-        --model_name /home/ubuntu/its_hub/checkpoints/gsm8k_qwen_grpo_empo \
+        --model_name /share/kuleshov/gw354/ChainofDiffusion/EMPO/checkpoints/verl_grpo/qwen2.5-1.5b-instruct_gsm8k_grpo_rollout-8/global_step_100/actor/huggingface \
         --alg particle-filtering \
         --rm_device cuda:0 \
         --endpoint http://0.0.0.0:8001/v1 \
         --shuffle_seed 1110 \
         --does_eval \
         --budgets $n \
-        --rm_agg_method model > logs/gsm8k_qwen_grpo_empo_lambda-1_N-${n}.log
+        --rm_agg_method model > logs/gsm8k_qwen-grpo_T-0.8_N-${n}.log
 done
 ```
